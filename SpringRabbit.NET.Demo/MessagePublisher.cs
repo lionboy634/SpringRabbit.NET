@@ -1,0 +1,60 @@
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using SpringRabbit.NET;
+using SpringRabbit.NET.Demo;
+
+namespace SpringRabbit.NET.Demo;
+
+/// <summary>
+/// Example service that publishes messages to RabbitMQ queues.
+/// </summary>
+public class MessagePublisher : BackgroundService
+{
+    private readonly RabbitTemplate _rabbitTemplate;
+    private readonly ILogger<MessagePublisher> _logger;
+
+    public MessagePublisher(RabbitTemplate rabbitTemplate, ILogger<MessagePublisher> logger)
+    {
+        _rabbitTemplate = rabbitTemplate;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        // Wait a bit for consumers to start
+        await Task.Delay(2000, stoppingToken);
+
+        _logger.LogInformation("Starting to publish demo messages...");
+
+        for (int i = 1; i <= 10 && !stoppingToken.IsCancellationRequested; i++)
+        {
+            var message = new DemoMessage
+            {
+                Id = Guid.NewGuid().ToString(),
+                Content = $"Demo message #{i}",
+                Timestamp = DateTime.UtcNow
+            };
+
+            _rabbitTemplate.Send("demo.queue", message);
+            _logger.LogInformation("Published message #{Id}: {Content}", message.Id, message.Content);
+
+            // Send a priority message every 3rd message
+            if (i % 3 == 0)
+            {
+                var priorityMessage = new DemoMessage
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Content = $"Priority message #{i}",
+                    Timestamp = DateTime.UtcNow
+                };
+                _rabbitTemplate.Send("priority.queue", priorityMessage, priority: 10);
+                _logger.LogInformation("Published priority message #{Id}", priorityMessage.Id);
+            }
+
+            await Task.Delay(1000, stoppingToken);
+        }
+
+        _logger.LogInformation("Finished publishing demo messages");
+    }
+}
+
