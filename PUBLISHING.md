@@ -105,3 +105,4 @@ The package includes:
 - XML documentation warnings are non-blocking (package still works)
 - Consider adding XML comments in future versions for better IntelliSense
 
+

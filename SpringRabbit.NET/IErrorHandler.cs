@@ -18,3 +18,4 @@ public interface IErrorHandler
     bool HandleError(Exception exception, byte[] messageBody, ulong deliveryTag, IModel channel);
 }
 
+
