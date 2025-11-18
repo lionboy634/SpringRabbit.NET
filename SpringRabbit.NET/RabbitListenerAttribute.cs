@@ -21,7 +21,7 @@ public class RabbitListenerAttribute : Attribute
     /// Whether to enable dead letter queue (DLQ) support.
     /// Defaults to true.
     /// </summary>
-    public bool EnableDeadLetterQueue { get; set; } = true;
+    public bool EnableDeadLetterQueue { get; set; } = false;
 
     /// <summary>
     /// Maximum priority for priority queues (0-255).

@@ -18,7 +18,7 @@ public class DemoConsumer
     /// <summary>
     /// Equivalent to: @RabbitListener(queues = "demo.queue", concurrency = "3-10")
     /// </summary>
-    [RabbitListener("demo.queue", Concurrency = "3-10", PrefetchCount = 5)]
+    [RabbitListener("demo.queue", PrefetchCount = 5)]
     public async Task HandleDemoMessage(DemoMessage message)
     {
         _logger.LogInformation("Processing demo message: {Id} - {Content}", message.Id, message.Content);
@@ -38,5 +38,10 @@ public class DemoConsumer
         _logger.LogInformation("Processing priority message: {Id}", message.Id);
     }
 }
+
+
+
+
+
 
 

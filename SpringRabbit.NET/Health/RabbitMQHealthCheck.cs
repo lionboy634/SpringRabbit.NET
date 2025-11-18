@@ -21,7 +21,7 @@ public class RabbitMQHealthCheck : IHealthCheck
         {
             var connection = _connectionManager.GetConnection();
             if (connection?.IsOpen == true)
-            {
+            {   
                 return HealthCheckResult.Healthy("RabbitMQ connection is open");
             }
 
@@ -33,5 +33,10 @@ public class RabbitMQHealthCheck : IHealthCheck
         }
     }
 }
+
+
+
+
+
 
 

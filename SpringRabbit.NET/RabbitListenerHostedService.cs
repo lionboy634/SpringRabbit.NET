@@ -17,6 +17,7 @@ public class RabbitListenerHostedService : IHostedService
         _logger = logger;
     }
 
+    /// <inheritdoc/>
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _logger?.LogInformation("Starting RabbitMQ listeners...");
@@ -25,6 +26,7 @@ public class RabbitListenerHostedService : IHostedService
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc/>
     public Task StopAsync(CancellationToken cancellationToken)
     {
         _logger?.LogInformation("Stopping RabbitMQ listeners...");
@@ -33,5 +35,10 @@ public class RabbitListenerHostedService : IHostedService
         return Task.CompletedTask;
     }
 }
+
+
+
+
+
 
 
