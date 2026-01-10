@@ -44,14 +44,14 @@ public static class ServiceCollectionExtensions
         // Register connection manager
         services.AddSingleton<ConnectionManager>();
 
-        // Register message processor (DI will inject ConnectionManager, MessageConverterFactory, MetricsCollector)
+        // Register message processor (DI will inject ConnectionManager, ServiceProvider, MessageConverterFactory, MetricsCollector)
         services.AddSingleton<MessageProcessor>(sp =>
         {
             var connectionManager = sp.GetRequiredService<ConnectionManager>();
             var converterFactory = sp.GetRequiredService<MessageConverterFactory>();
             var metricsCollector = sp.GetRequiredService<Metrics.MetricsCollector>();
             var logger = sp.GetService<ILogger<MessageProcessor>>();
-            return new MessageProcessor(connectionManager, converterFactory, metricsCollector, logger);
+            return new MessageProcessor(connectionManager, sp, converterFactory, metricsCollector, logger);
         });
 
         // Register consumer discovery

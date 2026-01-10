@@ -76,35 +76,16 @@ public class ConsumerDiscovery
                 return null;
             }
 
+            // Create compiled delegate for fast invocation (no reflection on hot path)
+            var compiledHandler = CreateCompiledHandler(serviceType, method, messageType);
+
             return new ConsumerRegistration
             {
                 Queues = queues,
                 Attribute = attribute,
                 MessageType = messageType,
-                InvokeHandler = (message) =>
-                {
-                    var serviceInstance = _serviceProvider.GetService(serviceType);
-                    if (serviceInstance == null)
-                    {
-                        // Try to create instance if not registered
-                        var constructor = serviceType.GetConstructors()
-                            .OrderByDescending(c => c.GetParameters().Length)
-                            .FirstOrDefault();
-
-                        if (constructor != null)
-                        {
-                            var ctorParams = constructor.GetParameters();
-                            var args = ctorParams.Select(p => _serviceProvider.GetService(p.ParameterType)).ToArray();
-                            serviceInstance = Activator.CreateInstance(serviceType, args);
-                        }
-                        else
-                        {
-                            serviceInstance = Activator.CreateInstance(serviceType);
-                        }
-                    }
-
-                    return method.Invoke(serviceInstance, new[] { message });
-                }
+                ServiceType = serviceType,
+                InvokeHandler = compiledHandler
             };
         }
         catch (Exception ex)
@@ -113,11 +94,39 @@ public class ConsumerDiscovery
             return null;
         }
     }
+
+    /// <summary>
+    /// Creates a compiled delegate for the handler method, eliminating reflection overhead.
+    /// This compiles at startup, so message processing uses fast delegate invocation.
+    /// </summary>
+    private Func<object, object?, object?> CreateCompiledHandler(Type serviceType, MethodInfo method, Type messageType)
+    {
+        // Create expression-based compiled delegate for maximum performance
+        var instanceParam = System.Linq.Expressions.Expression.Parameter(typeof(object), "instance");
+        var messageParam = System.Linq.Expressions.Expression.Parameter(typeof(object), "message");
+
+        var castInstance = System.Linq.Expressions.Expression.Convert(instanceParam, serviceType);
+        var castMessage = System.Linq.Expressions.Expression.Convert(messageParam, messageType);
+
+        var methodCall = System.Linq.Expressions.Expression.Call(castInstance, method, castMessage);
+
+        System.Linq.Expressions.Expression body;
+        if (method.ReturnType == typeof(void))
+        {
+            // For void methods, return null after calling
+            body = System.Linq.Expressions.Expression.Block(
+                methodCall,
+                System.Linq.Expressions.Expression.Constant(null, typeof(object)));
+        }
+        else
+        {
+            // For methods with return value, box the result
+            body = System.Linq.Expressions.Expression.Convert(methodCall, typeof(object));
+        }
+
+        var lambda = System.Linq.Expressions.Expression.Lambda<Func<object, object?, object?>>(
+            body, instanceParam, messageParam);
+
+        return lambda.Compile();
+    }
 }
-
-
-
-
-
-
-
