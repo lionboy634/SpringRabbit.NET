@@ -22,11 +22,19 @@ public class MessagePublisher : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // Wait a bit for consumers to start
-        await Task.Delay(2000, stoppingToken);
+        
 
         _logger.LogInformation("Starting to publish demo messages...");
 
-        for (int i = 1; i <= 10 && !stoppingToken.IsCancellationRequested; i++)
+        var range = Enumerable.Range(1, 1_000_000);
+        var processorCount = Environment.ProcessorCount;
+
+        List<Task> tasks = new();
+        tasks.Add(CreateDataAsync());
+
+        await Task.WhenAll(tasks);
+
+        Parallel.ForEach(range, new ParallelOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount == 1 ? 1: Environment.ProcessorCount - 1}, i =>
         {
             var message = new DemoMessage
             {
@@ -39,7 +47,7 @@ public class MessagePublisher : BackgroundService
             _logger.LogInformation("Published message #{Id}: {Content}", message.Id, message.Content);
 
             // Send a priority message every 3rd message
-            if (i % 3 == 0)
+            if (i % 3 == 0 || i % 5 == 0)
             {
                 var priorityMessage = new DemoMessage
                 {
@@ -51,12 +59,21 @@ public class MessagePublisher : BackgroundService
                 _logger.LogInformation("Published priority message #{Id}", priorityMessage.Id);
             }
 
-            await Task.Delay(1000, stoppingToken);
-        }
-
+        });
         _logger.LogInformation("Finished publishing demo messages");
     }
+
+    private Task DelayAsync(int milliseconds, CancellationToken token)
+    {
+        return Task.Delay(milliseconds, token);
+    }
+
+    private Task CreateDataAsync()
+    {
+        return Task.FromResult(0); 
+    }
 }
+
 
 
 

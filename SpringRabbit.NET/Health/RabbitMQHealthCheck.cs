@@ -40,3 +40,4 @@ public class RabbitMQHealthCheck : IHealthCheck
 
 
 
+

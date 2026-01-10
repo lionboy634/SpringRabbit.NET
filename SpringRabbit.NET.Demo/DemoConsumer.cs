@@ -18,7 +18,7 @@ public class DemoConsumer
     /// <summary>
     /// Equivalent to: @RabbitListener(queues = "demo.queue", concurrency = "3-10")
     /// </summary>
-    [RabbitListener("demo.queue", PrefetchCount = 5)]
+    [RabbitListener("demo.queue", Concurrency = "5-20", PrefetchCount = 10)]
     public async Task HandleDemoMessage(DemoMessage message)
     {
         _logger.LogInformation("Processing demo message: {Id} - {Content}", message.Id, message.Content);
@@ -32,12 +32,13 @@ public class DemoConsumer
     /// <summary>
     /// Example with priority queue and DLQ
     /// </summary>
-    [RabbitListener("priority.queue", Concurrency = "2-5", MaxPriority = 10, EnableDeadLetterQueue = true)]
+    [RabbitListener("priority.queue", Concurrency = "5-20", MaxPriority = 10, EnableDeadLetterQueue = true)]
     public void HandlePriorityMessage(DemoMessage message)
     {
         _logger.LogInformation("Processing priority message: {Id}", message.Id);
     }
 }
+
 
 
 
