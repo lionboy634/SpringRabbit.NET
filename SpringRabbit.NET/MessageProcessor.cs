@@ -120,12 +120,19 @@ public class MessageProcessor
                                 deserializedMessage = converter.FromMessage(body, registration.MessageType, contentType);
                             }
 
+                            // Create MessageContext if handler needs it
+                            MessageContext? messageContext = null;
+                            if (registration.NeedsMessageContext)
+                            {
+                                messageContext = MessageContext.FromDeliveryEventArgs(ea, queueName, consumerTag);
+                            }
+
                             // Create scope for scoped services (like DbContext)
                             using var scope = _serviceProvider.CreateScope();
                             var serviceInstance = scope.ServiceProvider.GetRequiredService(registration.ServiceType!);
 
                             // Invoke handler using compiled delegate (no reflection)
-                            var result = registration.InvokeHandler(serviceInstance, deserializedMessage);
+                            var result = registration.InvokeHandler(serviceInstance, deserializedMessage, messageContext);
 
                             // Handle async methods
                             if (result is Task task)
@@ -197,11 +204,14 @@ public class ConsumerRegistration
     /// <summary>Type of the service containing the handler method.</summary>
     public Type? ServiceType { get; set; }
     
+    /// <summary>Whether the handler method needs MessageContext as second parameter.</summary>
+    public bool NeedsMessageContext { get; set; }
+    
     /// <summary>
     /// Compiled delegate for fast handler invocation.
-    /// Parameters: (serviceInstance, message) => result
+    /// Parameters: (serviceInstance, message, messageContext) => result
     /// </summary>
-    public Func<object, object?, object?> InvokeHandler { get; set; } = null!;
+    public Func<object, object?, MessageContext?, object?> InvokeHandler { get; set; } = null!;
     
     /// <summary>Optional custom error handler.</summary>
     public IErrorHandler? ErrorHandler { get; set; }

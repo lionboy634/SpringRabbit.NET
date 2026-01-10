@@ -192,6 +192,39 @@ public void HandleMultipleQueues(Message message)
 }
 ```
 
+### Accessing Message Headers and Metadata
+
+```csharp
+[RabbitListener("orders.queue")]
+public async Task HandleOrder(OrderMessage order, MessageContext context)
+{
+    // Access correlation ID for tracing
+    var correlationId = context.CorrelationId;
+    
+    // Check message priority
+    var priority = context.Priority;
+    
+    // Read custom headers
+    var customHeader = context.GetHeader<string>("x-custom-header");
+    var tenantId = context.GetHeader<int>("x-tenant-id");
+    
+    // Check if header exists
+    if (context.HasHeader("x-urgent"))
+    {
+        // Handle urgent message
+    }
+    
+    // Access raw properties
+    var timestamp = context.Timestamp;
+    var messageId = context.MessageId;
+    var redelivered = context.Redelivered;
+    
+    _logger.LogInformation(
+        "Processing order {OrderId} with correlation {CorrelationId}", 
+        order.OrderId, correlationId);
+}
+```
+
 ### Custom Content Type (XML)
 
 ```csharp
@@ -673,6 +706,11 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - **Repository**: https://github.com/lionboy634/SpringRabbit.NET
 
 ## Changelog
+
+### Version 1.2.0
+- **Feature**: `MessageContext` - Access message headers, properties, and metadata in handlers
+- **Feature**: GitHub Actions CI/CD workflow for automated builds and NuGet publishing
+- **Improved**: Handlers now support optional second parameter `MessageContext` for advanced scenarios
 
 ### Version 1.1.0
 - **Performance**: Compiled delegates replace reflection for handler invocation (10x faster message processing)
