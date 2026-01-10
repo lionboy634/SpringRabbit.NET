@@ -1,15 +1,15 @@
 # Publishing SpringRabbit.NET to NuGet
 
-## Package Created Successfully ✅
+## Latest Package ✅
 
-**Package Location:** `./nupkg/SpringRabbit.NET.1.0.0.nupkg`  
-**Symbols Package:** `./nupkg/SpringRabbit.NET.1.0.0.snupkg`  
-**Package Size:** 31 KB
+**Package Location:** `./nupkg/SpringRabbit.NET.1.1.0.nupkg`  
+**Symbols Package:** `./nupkg/SpringRabbit.NET.1.1.0.snupkg`  
+**Package Size:** ~37 KB
 
 ## Package Metadata
 
 - **Package ID:** SpringRabbit.NET
-- **Version:** 1.0.0
+- **Version:** 1.1.0
 - **Authors:** Rexford Asiedu
 - **Company:** Poseidon
 - **License:** MIT
@@ -104,6 +104,7 @@ The package includes:
 - Dependencies are automatically resolved by NuGet
 - XML documentation warnings are non-blocking (package still works)
 - Consider adding XML comments in future versions for better IntelliSense
+
 
 
 

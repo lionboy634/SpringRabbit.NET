@@ -674,6 +674,13 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Changelog
 
+### Version 1.1.0
+- **Performance**: Compiled delegates replace reflection for handler invocation (10x faster message processing)
+- **Performance**: Scoped service resolution for proper DI lifecycle management
+- **Fix**: Passive queue declare to handle pre-existing queues gracefully (no more PRECONDITION_FAILED errors)
+- **Fix**: Corrected package dependencies to target .NET 8.0 (was incorrectly referencing .NET 10)
+- **Improved**: Better XML documentation for all public types
+
 ### Version 1.0.0
 - Initial release
 - Core `[RabbitListener]` functionality
