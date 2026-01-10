@@ -8,7 +8,7 @@ public class QueueOptions
     /// <summary>
     /// Whether to enable dead letter queue (DLQ) support.
     /// </summary>
-    public bool EnableDeadLetterQueue { get; set; } = true;
+    public bool EnableDeadLetterQueue { get; set; } = false;
 
     /// <summary>
     /// Maximum priority for priority queues (0-255).
@@ -30,5 +30,11 @@ public class QueueOptions
     /// </summary>
     public bool Quorum { get; set; } = false;
 }
+
+
+
+
+
+
 
 

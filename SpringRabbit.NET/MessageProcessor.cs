@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -10,15 +11,22 @@ namespace SpringRabbit.NET;
 public class MessageProcessor
 {
     private readonly ConnectionManager _connectionManager;
+    private readonly IServiceProvider _serviceProvider;
     private readonly MessageConverterFactory _converterFactory;
     private readonly Metrics.MetricsCollector? _metricsCollector;
     private readonly ILogger<MessageProcessor>? _logger;
     private readonly List<ConsumerRegistration> _registrations = new();
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
-    public MessageProcessor(ConnectionManager connectionManager, MessageConverterFactory? converterFactory = null, Metrics.MetricsCollector? metricsCollector = null, ILogger<MessageProcessor>? logger = null)
+    public MessageProcessor(
+        ConnectionManager connectionManager,
+        IServiceProvider serviceProvider,
+        MessageConverterFactory? converterFactory = null, 
+        Metrics.MetricsCollector? metricsCollector = null, 
+        ILogger<MessageProcessor>? logger = null)
     {
         _connectionManager = connectionManager ?? throw new ArgumentNullException(nameof(connectionManager));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _converterFactory = converterFactory ?? new MessageConverterFactory();
         _metricsCollector = metricsCollector;
         _logger = logger;
@@ -112,8 +120,12 @@ public class MessageProcessor
                                 deserializedMessage = converter.FromMessage(body, registration.MessageType, contentType);
                             }
 
-                            // Invoke handler
-                            var result = registration.InvokeHandler(deserializedMessage);
+                            // Create scope for scoped services (like DbContext)
+                            using var scope = _serviceProvider.CreateScope();
+                            var serviceInstance = scope.ServiceProvider.GetRequiredService(registration.ServiceType!);
+
+                            // Invoke handler using compiled delegate (no reflection)
+                            var result = registration.InvokeHandler(serviceInstance, deserializedMessage);
 
                             // Handle async methods
                             if (result is Task task)
@@ -173,10 +185,25 @@ public class MessageProcessor
 /// </summary>
 public class ConsumerRegistration
 {
+    /// <summary>Queue names to consume from.</summary>
     public string[] Queues { get; set; } = Array.Empty<string>();
+    
+    /// <summary>The listener attribute configuration.</summary>
     public RabbitListenerAttribute Attribute { get; set; } = null!;
+    
+    /// <summary>Type of the message parameter.</summary>
     public Type? MessageType { get; set; }
-    public Func<object?, object?> InvokeHandler { get; set; } = null!;
+    
+    /// <summary>Type of the service containing the handler method.</summary>
+    public Type? ServiceType { get; set; }
+    
+    /// <summary>
+    /// Compiled delegate for fast handler invocation.
+    /// Parameters: (serviceInstance, message) => result
+    /// </summary>
+    public Func<object, object?, object?> InvokeHandler { get; set; } = null!;
+    
+    /// <summary>Optional custom error handler.</summary>
     public IErrorHandler? ErrorHandler { get; set; }
 }
 

@@ -93,10 +93,22 @@ public class ConnectionManager : IDisposable
 
     /// <summary>
     /// Ensures a queue exists with advanced options.
+    /// Uses passive declare first to check if the queue already exists.
+    /// If it exists, uses it as-is to avoid PRECONDITION_FAILED errors when
+    /// the queue was created with different arguments by another service.
     /// </summary>
     public void EnsureQueue(string queueName, QueueOptions options)
     {
         var channel = GetChannel(queueName);
+
+        // First, ensure DLQ exists if enabled (DLQs are simple queues, less likely to have conflicts)
+        if (options.EnableDeadLetterQueue)
+        {
+            var dlqName = $"{queueName}.dlq";
+            EnsureQueueExists(dlqName, channel, null);
+        }
+
+        // Build arguments for the main queue
         var arguments = new Dictionary<string, object>();
 
         if (options.EnableDeadLetterQueue)
@@ -104,9 +116,6 @@ public class ConnectionManager : IDisposable
             var dlqName = $"{queueName}.dlq";
             arguments["x-dead-letter-exchange"] = "";
             arguments["x-dead-letter-routing-key"] = dlqName;
-
-            // Ensure DLQ exists
-            channel.QueueDeclare(dlqName, durable: true, exclusive: false, autoDelete: false, arguments: null);
         }
 
         if (options.MaxPriority > 0)
@@ -129,9 +138,46 @@ public class ConnectionManager : IDisposable
             arguments["x-queue-type"] = "quorum";
         }
 
-        channel.QueueDeclare(queueName, durable: true, exclusive: false, autoDelete: false, arguments: arguments);
-        _logger?.LogDebug("Queue {Queue} ensured with DLQ={Dlq}, MaxPriority={Priority}, TTL={Ttl}, Lazy={Lazy}, Quorum={Quorum}", 
-            queueName, options.EnableDeadLetterQueue, options.MaxPriority, options.MessageTtl, options.Lazy, options.Quorum);
+        // Try to ensure the queue exists, handling pre-existing queues gracefully
+        if (EnsureQueueExists(queueName, channel, arguments.Count > 0 ? arguments : null))
+        {
+            _logger?.LogDebug("Queue {Queue} ensured with DLQ={Dlq}, MaxPriority={Priority}, TTL={Ttl}, Lazy={Lazy}, Quorum={Quorum}", 
+                queueName, options.EnableDeadLetterQueue, options.MaxPriority, options.MessageTtl, options.Lazy, options.Quorum);
+        }
+        else
+        {
+            _logger?.LogDebug("Queue {Queue} already exists, using existing configuration", queueName);
+        }
+    }
+
+    /// <summary>
+    /// Ensures a queue exists, using passive declare to check first.
+    /// Returns true if the queue was created, false if it already existed.
+    /// </summary>
+    private bool EnsureQueueExists(string queueName, IModel channel, IDictionary<string, object>? arguments)
+    {
+        try
+        {
+            // Try passive declare first - this checks if queue exists without modifying it
+            channel.QueueDeclarePassive(queueName);
+            return false; // Queue already exists
+        }
+        catch (RabbitMQ.Client.Exceptions.OperationInterruptedException)
+        {
+            // Queue doesn't exist - channel is now closed, need to recreate it
+            _channels.TryRemove(queueName, out _);
+            var newChannel = GetChannel(queueName);
+            
+            // Now declare the queue with our arguments
+            newChannel.QueueDeclare(
+                queue: queueName, 
+                durable: true, 
+                exclusive: false, 
+                autoDelete: false, 
+                arguments: arguments);
+            
+            return true; // Queue was created
+        }
     }
 
     /// <summary>

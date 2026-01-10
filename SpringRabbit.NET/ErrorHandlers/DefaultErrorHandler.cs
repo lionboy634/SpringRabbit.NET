@@ -17,10 +17,23 @@ public class DefaultErrorHandler : IErrorHandler
 
     public bool HandleError(Exception exception, byte[] messageBody, ulong deliveryTag, IModel channel)
     {
-        _logger?.LogError(exception, "Error processing message with delivery tag {DeliveryTag}. Rejecting and sending to DLQ.", deliveryTag);
-        channel.BasicNack(deliveryTag, false, false);
-        return false; // Message rejected
+        try
+        {
+            _logger?.LogError(exception, "Error processing message with delivery tag {DeliveryTag}. Rejecting and sending to DLQ.", deliveryTag);
+            channel.BasicNack(deliveryTag, false, false);
+            return false; // Message rejected
+        }
+        catch (Exception ex) { 
+            _logger?.LogError(ex, "Failed to nack message with delivery tag {DeliveryTag}", deliveryTag);
+            return false;
+        }
     }
 }
+
+
+
+
+
+
 
 
