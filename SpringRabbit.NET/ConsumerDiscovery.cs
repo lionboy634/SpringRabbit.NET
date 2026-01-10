@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
+using Expression = System.Linq.Expressions.Expression;
 
 namespace SpringRabbit.NET;
 
@@ -62,13 +63,6 @@ public class ConsumerDiscovery
                 return null;
             }
 
-            if (parameters.Length > 1)
-            {
-                _logger?.LogWarning("RabbitListener method {Method} has more than one parameter. Only the first will be used.", method.Name);
-            }
-
-            var messageType = parameters[0].ParameterType;
-
             var queues = attribute.Queues;
             if (queues.Length == 0)
             {
@@ -76,8 +70,23 @@ public class ConsumerDiscovery
                 return null;
             }
 
-            // Create compiled delegate for fast invocation (no reflection on hot path)
-            var compiledHandler = CreateCompiledHandler(serviceType, method, messageType);
+            // Determine parameter types
+            var messageType = parameters[0].ParameterType;
+            var needsMessageContext = parameters.Length >= 2 && 
+                                       parameters[1].ParameterType == typeof(MessageContext);
+
+            if (parameters.Length > 2)
+            {
+                _logger?.LogWarning("RabbitListener method {Method} has more than 2 parameters. Only message and MessageContext are supported.", method.Name);
+            }
+            else if (parameters.Length == 2 && !needsMessageContext)
+            {
+                _logger?.LogWarning("RabbitListener method {Method} second parameter must be MessageContext. Got {Type}.", 
+                    method.Name, parameters[1].ParameterType.Name);
+            }
+
+            // Create compiled delegate for fast invocation
+            var compiledHandler = CreateCompiledHandler(serviceType, method, messageType, needsMessageContext);
 
             return new ConsumerRegistration
             {
@@ -85,6 +94,7 @@ public class ConsumerDiscovery
                 Attribute = attribute,
                 MessageType = messageType,
                 ServiceType = serviceType,
+                NeedsMessageContext = needsMessageContext,
                 InvokeHandler = compiledHandler
             };
         }
@@ -97,35 +107,46 @@ public class ConsumerDiscovery
 
     /// <summary>
     /// Creates a compiled delegate for the handler method, eliminating reflection overhead.
-    /// This compiles at startup, so message processing uses fast delegate invocation.
+    /// Supports optional MessageContext as second parameter.
     /// </summary>
-    private Func<object, object?, object?> CreateCompiledHandler(Type serviceType, MethodInfo method, Type messageType)
+    private Func<object, object?, MessageContext?, object?> CreateCompiledHandler(
+        Type serviceType, MethodInfo method, Type messageType, bool needsMessageContext)
     {
-        // Create expression-based compiled delegate for maximum performance
-        var instanceParam = System.Linq.Expressions.Expression.Parameter(typeof(object), "instance");
-        var messageParam = System.Linq.Expressions.Expression.Parameter(typeof(object), "message");
+        // Parameters: (instance, message, messageContext)
+        var instanceParam = Expression.Parameter(typeof(object), "instance");
+        var messageParam = Expression.Parameter(typeof(object), "message");
+        var contextParam = Expression.Parameter(typeof(MessageContext), "context");
 
-        var castInstance = System.Linq.Expressions.Expression.Convert(instanceParam, serviceType);
-        var castMessage = System.Linq.Expressions.Expression.Convert(messageParam, messageType);
+        var castInstance = Expression.Convert(instanceParam, serviceType);
+        var castMessage = Expression.Convert(messageParam, messageType);
 
-        var methodCall = System.Linq.Expressions.Expression.Call(castInstance, method, castMessage);
+        System.Linq.Expressions.MethodCallExpression methodCall;
+        
+        if (needsMessageContext)
+        {
+            // Call with both message and context
+            methodCall = Expression.Call(castInstance, method, castMessage, contextParam);
+        }
+        else
+        {
+            // Call with just message
+            methodCall = Expression.Call(castInstance, method, castMessage);
+        }
 
         System.Linq.Expressions.Expression body;
         if (method.ReturnType == typeof(void))
         {
-            // For void methods, return null after calling
-            body = System.Linq.Expressions.Expression.Block(
+            body = Expression.Block(
                 methodCall,
-                System.Linq.Expressions.Expression.Constant(null, typeof(object)));
+                Expression.Constant(null, typeof(object)));
         }
         else
         {
-            // For methods with return value, box the result
-            body = System.Linq.Expressions.Expression.Convert(methodCall, typeof(object));
+            body = Expression.Convert(methodCall, typeof(object));
         }
 
-        var lambda = System.Linq.Expressions.Expression.Lambda<Func<object, object?, object?>>(
-            body, instanceParam, messageParam);
+        var lambda = Expression.Lambda<Func<object, object?, MessageContext?, object?>>(
+            body, instanceParam, messageParam, contextParam);
 
         return lambda.Compile();
     }

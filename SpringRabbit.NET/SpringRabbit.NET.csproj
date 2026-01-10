@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     
     <!-- NuGet Package Metadata -->
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Authors>Rexford Asiedu</Authors>
     <Company>Poseidon</Company>
     <Description>A .NET port of Spring RabbitMQ's @RabbitListener annotation, providing declarative message consumption with automatic queue management, dead letter queue support, retry mechanisms, and concurrency control. Inspired by Spring AMQP and adapted for .NET.</Description>
