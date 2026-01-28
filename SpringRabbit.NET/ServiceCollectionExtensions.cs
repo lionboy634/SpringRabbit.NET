@@ -19,6 +19,9 @@ public static class ServiceCollectionExtensions
         var options = new RabbitMQOptions();
         configure?.Invoke(options);
 
+        // Register options
+        services.AddSingleton(options);
+
         // Register connection factory
         services.AddSingleton<IConnectionFactory>(sp =>
         {
@@ -50,8 +53,9 @@ public static class ServiceCollectionExtensions
             var connectionManager = sp.GetRequiredService<ConnectionManager>();
             var converterFactory = sp.GetRequiredService<MessageConverterFactory>();
             var metricsCollector = sp.GetRequiredService<Metrics.MetricsCollector>();
+            var options = sp.GetRequiredService<RabbitMQOptions>();
             var logger = sp.GetService<ILogger<MessageProcessor>>();
-            return new MessageProcessor(connectionManager, sp, converterFactory, metricsCollector, logger);
+            return new MessageProcessor(connectionManager, sp, converterFactory, metricsCollector, options, logger);
         });
 
         // Register consumer discovery
@@ -122,5 +126,21 @@ public class RabbitMQOptions
     public string? UserName { get; set; }
     public string? Password { get; set; }
     public string? VirtualHost { get; set; }
+
+    /// <summary>
+    /// Explicitly declared queues.
+    /// </summary>
+    public IDictionary<string, QueueOptions> Queues { get; } = new Dictionary<string, QueueOptions>();
+
+    /// <summary>
+    /// Declares a queue with the specified name and options.
+    /// </summary>
+    public RabbitMQOptions DeclareQueue(string name, Action<QueueOptions>? configure = null)
+    {
+        var options = new QueueOptions();
+        configure?.Invoke(options);
+        Queues[name] = options;
+        return this;
+    }
 }
 

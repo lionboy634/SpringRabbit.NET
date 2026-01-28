@@ -138,6 +138,15 @@ public class ConnectionManager : IDisposable
             arguments["x-queue-type"] = "quorum";
         }
 
+        // Add custom arguments
+        if (options.Arguments != null)
+        {
+            foreach (var arg in options.Arguments)
+            {
+                arguments[arg.Key] = arg.Value;
+            }
+        }
+
         // Try to ensure the queue exists, handling pre-existing queues gracefully
         if (EnsureQueueExists(queueName, channel, arguments.Count > 0 ? arguments : null))
         {

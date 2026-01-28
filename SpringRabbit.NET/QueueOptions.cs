@@ -29,6 +29,11 @@ public class QueueOptions
     /// Whether to use quorum queue type (replicated, highly available).
     /// </summary>
     public bool Quorum { get; set; } = false;
+
+    /// <summary>
+    /// Custom RabbitMQ queue arguments.
+    /// </summary>
+    public IDictionary<string, object> Arguments { get; set; } = new Dictionary<string, object>();
 }
 
 
