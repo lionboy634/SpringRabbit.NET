@@ -15,6 +15,7 @@ public class MessageProcessor
     private readonly MessageConverterFactory _converterFactory;
     private readonly Metrics.MetricsCollector? _metricsCollector;
     private readonly ILogger<MessageProcessor>? _logger;
+    private readonly RabbitMQOptions? _options;
     private readonly List<ConsumerRegistration> _registrations = new();
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
@@ -23,12 +24,14 @@ public class MessageProcessor
         IServiceProvider serviceProvider,
         MessageConverterFactory? converterFactory = null, 
         Metrics.MetricsCollector? metricsCollector = null, 
+        RabbitMQOptions? options = null,
         ILogger<MessageProcessor>? logger = null)
     {
         _connectionManager = connectionManager ?? throw new ArgumentNullException(nameof(connectionManager));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _converterFactory = converterFactory ?? new MessageConverterFactory();
         _metricsCollector = metricsCollector;
+        _options = options;
         _logger = logger;
     }
 
@@ -46,6 +49,15 @@ public class MessageProcessor
     /// </summary>
     public void StartAll()
     {
+        // Declare any explicitly configured queues first
+        if (_options?.Queues != null)
+        {
+            foreach (var (queueName, queueOptions) in _options.Queues)
+            {
+                _connectionManager.EnsureQueue(queueName, queueOptions);
+            }
+        }
+
         foreach (var registration in _registrations)
         {
             StartListener(registration);

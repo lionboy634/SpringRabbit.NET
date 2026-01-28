@@ -351,6 +351,30 @@ connectionManager.EnsureQueue("orders.queue", new QueueOptions
 });
 ```
 
+### Delay Queues ("The Waiting Room" Strategy)
+
+You can use standard RabbitMQ TTL and Dead Lettering to implement message delays without any plugins:
+
+```csharp
+builder.Services.AddSpringRabbit(options =>
+{
+    options.ConnectionString = "amqp://guest:guest@localhost:5672/";
+
+    // Setting up a 5-minute delay queue
+    options.DeclareQueue("sms.grace.period", queueOptions => 
+    {
+        // 1. Message stays here for 5 minutes (300,000ms)
+        queueOptions.Arguments["x-message-ttl"] = 300000; 
+        
+        // 2. When it expires, it jumps back to the default exchange ("")
+        queueOptions.Arguments["x-dead-letter-exchange"] = ""; 
+        
+        // 3. And is routed to the actual consumer queue
+        queueOptions.Arguments["x-dead-letter-routing-key"] = "sms.notifications";
+    });
+});
+```
+
 ### Monitoring and Metrics
 
 ```csharp
@@ -706,6 +730,15 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - **Repository**: https://github.com/lionboy634/SpringRabbit.NET
 
 ## Changelog
+
+### Version 1.4.0
+- **Feature**: `DeclareQueue` - Explicitly declare infrastructure queues with custom RabbitMQ arguments
+- **Feature**: `QueueOptions.Arguments` - Support for arbitrary RabbitMQ queue arguments (e.g., `x-message-ttl`, `x-dead-letter-exchange`)
+- **Improved**: Automatic queue provisioning on application startup for manually declared queues
+
+### Version 1.3.0
+- **Feature**: Enhanced XML documentation and package metadata
+- **Improved**: More robust connection recovery and channel management
 
 ### Version 1.2.0
 - **Feature**: `MessageContext` - Access message headers, properties, and metadata in handlers
